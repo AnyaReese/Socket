@@ -31,7 +31,6 @@ void send_to_server(int &sock,struct packet pack)
 {
     char buffer[1024] = {0};
     send(sock, &pack, 277, 0);
-    printf("message sent\n");
     read(sock, buffer, 1024);
     printf("[From Server]: %s\n", buffer); 
     return;
@@ -41,15 +40,6 @@ int main() {
     int sock = 0;
     struct sockaddr_in serv_sockaddr;
     // 创建套接字
-    sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock < 0) {
-        perror("Socket creation error");
-        return -1;
-    }
-
-    memset(&serv_sockaddr, 0, sizeof(serv_sockaddr));
-    serv_sockaddr.sin_family = AF_INET;
-    serv_sockaddr.sin_port = htons(DEFUALT_PORT);
     bool connected = false;
     while (true)
     {
@@ -84,11 +74,15 @@ int main() {
                 flag = false;
                 send_to_server(sock,pack);
                 close(sock);
+                connected = false;
                 cout <<"done"<<endl;
                 break;
             case 6:
                 cout <<"Exiting ..."<<endl;
+                flag = false;
+                send_to_server(sock,pack);
                 close(sock);
+                connected = false;
                 cout <<"done"<<endl;
                 return 0;
                 break;
@@ -101,6 +95,14 @@ int main() {
         }
         else
         {
+            sock = socket(AF_INET, SOCK_STREAM, 0);
+            if (sock < 0) {
+                perror("Socket creation error");
+                return -1;
+            }
+            memset(&serv_sockaddr, 0, sizeof(serv_sockaddr));
+            serv_sockaddr.sin_family = AF_INET;
+            serv_sockaddr.sin_port = htons(DEFUALT_PORT);
             cout<<menu1;
             cin>>order;
             switch (order)
