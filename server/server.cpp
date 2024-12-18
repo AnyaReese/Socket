@@ -7,6 +7,13 @@
 #include <unistd.h>
  
 #define PORT 8080
+
+// ANSI color codes
+#define RED "\033[1;31m"
+#define GREEN "\033[1;32m"
+#define YELLOW "\033[1;33m"
+#define RESET "\033[0m"
+#define CYAN "\033[36m"
  
 int main() {
     int server_fd, new_socket;

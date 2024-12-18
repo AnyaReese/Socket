@@ -9,6 +9,13 @@
 
 #define DEFUALT_PORT 8080
 
+// ANSI color codes
+#define RED "\033[1;31m"
+#define GREEN "\033[1;32m"
+#define YELLOW "\033[1;33m"
+#define RESET "\033[0m"
+#define CYAN "\033[36m"
+
 using namespace std;
 string menu1 = "=======Menu=======\n| 1. connect     |\n| 2. exit        |\n==================\n";
 string menu2 = "=======Menu=======\n| 1.get time     |\n| 2.get name     |\n| 3.client list  |\n| 4.send message |\n| 5.disconnect   |\n| 6.exit         |\n==================\n";
