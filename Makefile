@@ -4,11 +4,12 @@ CXXFLAGS = -std=c++11 -Wall
 
 # 目录设置
 BUILD_DIR = build
-SRC_DIR = .
+CLIENT_DIR = client
+SERVER_DIR = server
 
 # 源文件和目标文件
-CLIENT_SRC = client.cpp
-SERVER_SRC = server.cpp
+CLIENT_SRC = $(CLIENT_DIR)/client.cpp
+SERVER_SRC = $(SERVER_DIR)/server.cpp
 CLIENT_TARGET = $(BUILD_DIR)/client
 SERVER_TARGET = $(BUILD_DIR)/server
 
