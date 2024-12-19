@@ -1,6 +1,6 @@
 # 编译器设置
 CXX = g++
-CXXFLAGS = -std=c++11 -Wall
+CXXFLAGS = -std=c++11 -Wall -pthread
 
 # 目录设置
 BUILD_DIR = build
