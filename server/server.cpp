@@ -8,11 +8,14 @@
 #include <thread>
 #include <vector>
 #include <map>
+#include <string>
+#include <time.h>
+
 using namespace std;
 
 #define PORT 8080
 #define MAX_CLIENT 10
-
+ 
 
 // ANSI color codes
 #define RED "\033[1;31m"
@@ -26,19 +29,23 @@ std::map<int, thread*> threads;
 int sockets[MAX_CLIENT];
 
 
-void do_server(int socket)
+void do_server(int socket, int id)
 {
     char buffer[1024] = {0};
+    string ring_ = "You have a message from ID: "+to_string(id)+"\n";
+    const char* n = "Tcat";
+    string client_list_ = "Connectnig Client List:\n";
+    const char* bye = "OK, bye~";
+
     // 读取客户端数据
     while (true)
     {
         read(socket, buffer, 1024);
-        const char* t = "TODO 99:99:99";
-        const char* n = "Tcat";
-        const char* l = "TODO CLIENT LIST";
-        const char* sm = "TODO SEND MESSAGE";
-        const char* bye = "OK, bye~";
-        int id;
+        // const char* t = "TODO 99:99:99";
+        time_t rawtime;
+        time( &rawtime );
+        const char* t = asctime( localtime( &rawtime ));
+        int target_ = -1;
 
         switch (buffer[0])
         {
@@ -49,29 +56,30 @@ void do_server(int socket)
             send(socket, n, strlen(n), 0);
             break;
         case 3:
-            for ( id = 0; id<MAX_CLIENT; id++)
+            for ( int i = 0; i<MAX_CLIENT; i++)
             {
-                if(sockets[id] > 0)
-                {
-                    cout <<"\tID: "<<id<<" socket:"<<sockets[id]<<endl; 
-                }
+                if(sockets[i] >= 0 )
+                client_list_ += "\tID: "+ to_string(i)+" socket:" + to_string(sockets[i]) +"\n";
             }
-            send(socket, l, strlen(l), 0);
+            send(socket, (char*)(client_list_.data()), client_list_.length(), 0);
             break;
         case 4:
-            send(socket, sm, strlen(sm), 0);
-            printf("Target: %s\n", buffer+1);
+            target_ = int(*(buffer+1))-int('0');
+            if(target_ < 0|| target_>=MAX_CLIENT || sockets[target_] < 0)
+            {
+                send(socket, "[ERROR]: Target ID addr do not exist", strlen("[ERROR]: Target ID addr do not exist"), 0);
+                break;
+            }
+            printf("Sending Message from ID: %d to target ID: %s\n", id, buffer+1);
+            send(sockets[target_], ring_.data(), ring_.length(), 0);
+            send(sockets[target_], buffer+21, 256, 0);
             printf("Message: %s\n", buffer+21);
             break;
         case 5:
             send(socket, bye, strlen(bye), 0);
-            printf("%d disconnected\n",PORT);
             close(socket);
-            for ( id = 0; id<MAX_CLIENT; id++)
-            {
-                if(sockets[id] == socket)break; 
-            }
             sockets[id] = -2;
+            printf("ID %d disconnected\n",id);
             return;
             break;
         default:
@@ -143,10 +151,9 @@ int main() {
             delete threads[id];
             cout<<"deleted"<<endl;
         }
-        threads[id] = new thread(do_server, new_socket);
+        threads[id] = new thread(do_server, new_socket, id);
         cout<<"PORT: "<< PORT <<" connected to new_socket: "<< new_socket <<" with local ID: "<< id <<endl;
-        // threads.emplace_back(do_server, new_socket);
-        cout<<"Current connecting: "<<endl;
+        cout<<"Current connecting status: "<<endl;
         for ( id = 0; id<MAX_CLIENT; id++)
         {
             cout <<"\tID: "<<id<<" socket:"<<sockets[id]<<endl; 

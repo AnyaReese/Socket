@@ -67,7 +67,8 @@ void processMessageQueue() {
         messageQueue.pop();
         
         if(msg.type == ThreadMessage::RESPONSE) {
-            printf("%s[Server Response]:%s %s\n", CYAN, RESET, msg.content.c_str());
+            printf("\n%s[Server Response]:%s %s\n", CYAN, RESET, msg.content.c_str());
+            printf("%s[User]%s ", YELLOW, RESET);
         } else {
             printf("\n%s[Message from %s(ID:%d)]:%s %s\n", 
                    CYAN, msg.sender_ip.c_str(), msg.sender_id, RESET, msg.content.c_str());
@@ -111,9 +112,16 @@ void* receiveThread(void* arg) {
     return NULL;
 }
 
+// 发送消息到服务器
+void send_to_server(int &sock, struct packet pack) {
+    send(sock, &pack, 277, 0);
+}
+
 // 处理断开连接
 void disconnect(int& sock) {
     printf("%s[INFO]%s Disconnecting...\n", GREEN, RESET);
+    struct packet pack = {5, "", ""};
+    send_to_server(sock, pack);
     threadRunning = false;
     shutdown(sock, SHUT_RDWR);
     pthread_join(recvThread, NULL);
@@ -122,10 +130,7 @@ void disconnect(int& sock) {
     printf("%s[INFO]%s Disconnected successfully!\n", GREEN, RESET);
 }
 
-// 发送消息到服务器
-void send_to_server(int &sock, struct packet pack) {
-    send(sock, &pack, 277, 0);
-}
+
 
 // 获取客户端列表
 void get_client_list(int& sock) {
@@ -143,7 +148,7 @@ void send_message(int& sock) {
     }
     
     struct packet pack = {4, "", ""};
-    printf("%s[INFO]%s Please enter target IP address:\n", GREEN, RESET);
+    printf("%s[INFO]%s Please enter target ID\n", GREEN, RESET);
     printf("%s[User]%s ", YELLOW, RESET);
     cin >> pack.target_addr;
     printf("%s[INFO]%s Please enter your message:\n", GREEN, RESET);
