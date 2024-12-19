@@ -1,5 +1,4 @@
 // client.cpp
-
 #include <iostream>
 #include <cstring>
 #include <sys/socket.h>
@@ -17,8 +16,24 @@
 #define CYAN "\033[36m"
 
 using namespace std;
-string menu1 = "=======Menu=======\n| 1. connect     |\n| 2. exit        |\n==================\n";
-string menu2 = "=======Menu=======\n| 1.get time     |\n| 2.get name     |\n| 3.client list  |\n| 4.send message |\n| 5.disconnect   |\n| 6.exit         |\n==================\n";
+
+string menu1 = "+-------------------+\n"
+               "|    " GREEN "Menu Options" RESET "    |\n"
+               "+-------------------+\n"
+               "| " YELLOW "1." RESET " connect        |\n"
+               "| " YELLOW "2." RESET " exit           |\n"
+               "+-------------------+\n";
+
+string menu2 = "+-------------------+\n"
+               "|    " GREEN "Menu Options" RESET "    |\n"
+               "+-------------------+\n"
+               "| " YELLOW "1." RESET " get time       |\n"
+               "| " YELLOW "2." RESET " get name       |\n"
+               "| " YELLOW "3." RESET " client list    |\n"
+               "| " YELLOW "4." RESET " send message   |\n"
+               "| " YELLOW "5." RESET " disconnect     |\n"
+               "| " YELLOW "6." RESET " exit           |\n"
+               "+-------------------+\n";
 
 struct packet
 {
@@ -27,12 +42,12 @@ struct packet
     char message[256];
 };
 
-void send_to_server(int &sock,struct packet pack)
+void send_to_server(int &sock, struct packet pack)
 {
     char buffer[1024] = {0};
     send(sock, &pack, 277, 0);
     read(sock, buffer, 1024);
-    printf("[From Server]: %s\n", buffer); 
+    printf("%s[Server]:%s %s\n", CYAN, RESET, buffer); 
     return;
 }
 
@@ -41,102 +56,115 @@ int main() {
     struct sockaddr_in serv_sockaddr;
     // 创建套接字
     bool connected = false;
+    
     while (true)
     {
         int order = 0;
         if(connected)
         {
-            cout<<menu2;
-            cin>>order;
+            cout << menu2;
+            printf("%s[User]%s ", YELLOW, RESET);
+            cin >> order;
+            
             struct packet pack = {-1,"",""};
             pack.request = order;
             bool flag = true;
+            
             switch (order)
             {
             case 1:
-                cout <<"Geting time ..."<<endl;
+                printf("%s[INFO]%s Getting time...\n", GREEN, RESET);
                 break;
             case 2:
-                cout <<"Geting name ..."<<endl;
+                printf("%s[INFO]%s Getting name...\n", GREEN, RESET);
                 break;
             case 3:
-                cout <<"Geting client list ..."<<endl;
+                printf("%s[INFO]%s Getting client list...\n", GREEN, RESET);
                 break;
             case 4:
-                cout<<"input IP addr"<<endl;
-                cin>>pack.target_addr;
-                cout<<"input message"<<endl;
-                cin>>pack.message;
-                cout <<"Sending Messsage ..."<<endl;
+                printf("%s[INFO]%s Please enter target IP address:\n", GREEN, RESET);
+                printf("%s[User]%s ", YELLOW, RESET);
+                cin >> pack.target_addr;
+                printf("%s[INFO]%s Please enter your message:\n", GREEN, RESET);
+                printf("%s[User]%s ", YELLOW, RESET);
+                cin >> pack.message;
+                printf("%s[INFO]%s Sending message...\n", GREEN, RESET);
                 break;
             case 5:
-                cout <<"Disconnecting ..."<<endl;
+                printf("%s[INFO]%s Disconnecting...\n", GREEN, RESET);
                 flag = false;
                 send_to_server(sock,pack);
                 close(sock);
                 connected = false;
-                cout <<"done"<<endl;
+                printf("%s[INFO]%s Disconnected successfully!\n", GREEN, RESET);
                 break;
             case 6:
-                cout <<"Exiting ..."<<endl;
+                printf("%s[INFO]%s Exiting...\n", GREEN, RESET);
                 flag = false;
                 send_to_server(sock,pack);
                 close(sock);
                 connected = false;
-                cout <<"done"<<endl;
+                printf("%s[INFO]%s Goodbye!\n", GREEN, RESET);
                 return 0;
-                break;
             default:
-                cout <<"[INFO]: unknown command"<<endl;
+                printf("%s[ERROR]%s Unknown command!\n", RED, RESET);
                 flag = false;
                 break;
             }
-            if(flag)send_to_server(sock,pack);
+            if(flag) send_to_server(sock,pack);
         }
         else
         {
             sock = socket(AF_INET, SOCK_STREAM, 0);
             if (sock < 0) {
-                perror("Socket creation error");
+                printf("%s[ERROR]%s Socket creation failed\n", RED, RESET);
                 return -1;
             }
+            
             memset(&serv_sockaddr, 0, sizeof(serv_sockaddr));
             serv_sockaddr.sin_family = AF_INET;
             serv_sockaddr.sin_port = htons(DEFUALT_PORT);
-            cout<<menu1;
-            cin>>order;
+            
+            cout << menu1;
+            printf("%s[User]%s ", YELLOW, RESET);
+            cin >> order;
+            
             switch (order)
             {
             case 1:
                 char ip[20];
                 int port;
-                cout<<"input IP addr"<<endl;
-                cin>>ip;
-                cout<<"input Port"<<endl;
-                cin>>port;
+                printf("%s[INFO]%s Please enter server IP address:\n", GREEN, RESET);
+                printf("%s[User]%s ", YELLOW, RESET);
+                cin >> ip;
+                printf("%s[INFO]%s Please enter server port:\n", GREEN, RESET);
+                printf("%s[User]%s ", YELLOW, RESET);
+                cin >> port;
+                
                 serv_sockaddr.sin_port = htons(port);
-                // 将IP地址转换成二进制形式
-                if (inet_pton(AF_INET,ip, &serv_sockaddr.sin_addr) <= 0) {
-                    perror("Invalid address/ Address not supported");
+                
+                if (inet_pton(AF_INET, ip, &serv_sockaddr.sin_addr) <= 0) {
+                    printf("%s[ERROR]%s Invalid address/Address not supported\n", RED, RESET);
                     break;
                 }
-                // 连接服务器
+                
                 if (connect(sock, (struct sockaddr*)&serv_sockaddr, sizeof(serv_sockaddr)) < 0) {
-                    perror("Connection Failed");
-                    break;;
+                    printf("%s[ERROR]%s Connection failed\n", RED, RESET);
+                    break;
                 }
+                
+                printf("%s[INFO]%s Connected successfully!\n", GREEN, RESET);
                 connected = true;
                 break;
 
             case 2:
-                cout <<"Exiting ..."<<endl;
+                printf("%s[INFO]%s Exiting...\n", GREEN, RESET);
                 close(sock);
-                cout <<"done"<<endl;
+                printf("%s[INFO]%s Goodbye!\n", GREEN, RESET);
                 return 0;
-                break;
             
             default:
-                cout <<"[INFO]: unknown command"<<endl;
+                printf("%s[ERROR]%s Unknown command!\n", RED, RESET);
                 break;
             }
         }
