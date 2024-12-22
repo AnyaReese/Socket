@@ -25,25 +25,46 @@ using namespace std;
 
 std::map<int, thread*> threads;
 int sockets[MAX_CLIENT];
-int server_fd;  // 全局server socket描述符
+int server_fd;
 
-// 添加全局原子标志用于优雅退出
 std::atomic<bool> should_exit(false);
 
-// 信号处理函数
+// 添加一个辅助函数来处理send操作的结果
+bool send_with_check(int socket, const char* message, size_t length, int source_id = -1, int target_id = -1) {
+    ssize_t bytes_sent = send(socket, message, length, 0);
+    if (bytes_sent < 0) {
+        if (target_id >= 0) {
+            printf("%s[ERROR]%s Failed to send message from ID %d to ID %d: %s\n", 
+                   RED, RESET, source_id, target_id, strerror(errno));
+            // 通知发送方消息发送失败
+            string error_msg = "Message delivery failed: Connection error";
+            send(sockets[source_id], error_msg.c_str(), error_msg.length(), 0);
+        } else {
+            printf("%s[ERROR]%s Failed to send message to socket %d: %s\n", 
+                   RED, RESET, socket, strerror(errno));
+        }
+        return false;
+    } else if (bytes_sent < (ssize_t)length) {
+        printf("%s[WARNING]%s Partial send: only %zd of %zu bytes sent\n", 
+               YELLOW, RESET, bytes_sent, length);
+        return false;
+    }
+    return true;
+}
+
 void signal_handler(int signum) {
     printf("\n%s[INFO]%s Caught signal %d, cleaning up...\n", GREEN, RESET, signum);
     should_exit = true;
     
-    // 关闭所有客户端连接
     for(int i = 0; i < MAX_CLIENT; i++) {
         if(sockets[i] >= 0) {
+            const char* goodbye = "Server shutting down...";
+            send_with_check(sockets[i], goodbye, strlen(goodbye));
             close(sockets[i]);
             sockets[i] = -1;
         }
     }
     
-    // 关闭服务器socket
     if(server_fd >= 0) {
         close(server_fd);
     }
@@ -51,15 +72,16 @@ void signal_handler(int signum) {
 
 void do_server(int socket, int id) {
     char buffer[1024] = {0};
-    string ring_ = "You have a message from ID: "+to_string(id)+"\n";
     const char* n = "Tcat";
     const char* bye = "OK, bye~";
 
     // 发送欢迎消息
     const char* hello = "Welcome to the server!\n";
-    send(socket, hello, strlen(hello), 0);
+    if (!send_with_check(socket, hello, strlen(hello))) {
+        printf("%s[ERROR]%s Failed to send welcome message to client ID %d\n", RED, RESET, id);
+        return;
+    }
 
-    // 读取客户端数据
     while (!should_exit) {
         memset(buffer, 0, sizeof(buffer));
         ssize_t bytes_read = read(socket, buffer, 1024);
@@ -79,43 +101,72 @@ void do_server(int socket, int id) {
         int target_ = -1;
         string client_list_ = "Connecting Client List:\n";
 
+        // 在switch之前声明所有需要的变量
+        string ring_;
+        string success_msg;
+        const char* error_msg;
+
         switch (buffer[0]) {
             case 1: // get time
-                send(socket, t, strlen(t), 0);
+                if (send_with_check(socket, t, strlen(t))) {
+                    printf("%s[INFO]%s Time sent successfully to client ID %d\n", GREEN, RESET, id);
+                }
                 break;
+                
             case 2: // get name
-                send(socket, n, strlen(n), 0);
+                if (send_with_check(socket, n, strlen(n))) {
+                    printf("%s[INFO]%s Name sent successfully to client ID %d\n", GREEN, RESET, id);
+                }
                 break;
+                
             case 3: // client list
                 for(int i = 0; i < MAX_CLIENT; i++) {
                     if(sockets[i] >= 0)
                         client_list_ += "\tID: " + to_string(i) + " socket:" + to_string(sockets[i]) + "\n";
                 }
-                send(socket, client_list_.c_str(), client_list_.length(), 0);
+                if (send_with_check(socket, client_list_.c_str(), client_list_.length())) {
+                    printf("%s[INFO]%s Client list sent successfully to client ID %d\n", GREEN, RESET, id);
+                }
                 break;
+                
             case 4: // send message
                 target_ = int(*(buffer+1)) - int('0');
                 if(target_ < 0 || target_ >= MAX_CLIENT || sockets[target_] < 0) {
-                    send(socket, "[ERROR]: Target ID does not exist", 32, 0);
+                    error_msg = "[ERROR]: Target ID does not exist";
+                    send_with_check(socket, error_msg, strlen(error_msg));
                     break;
                 }
-                printf("Sending Message from ID: %d to target ID: %s\n", id, buffer+1);
-                send(sockets[target_], ring_.c_str(), ring_.length(), 0);
-                send(sockets[target_], buffer+21, 256, 0);
-                printf("Message: %s\n", buffer+21);
+                
+                ring_ = "You have a message from ID: " + to_string(id) + "\n";
+                printf("Attempting to send message from ID %d to target ID %d\n", id, target_);
+                
+                // 首先发送通知消息
+                if (send_with_check(sockets[target_], ring_.c_str(), ring_.length(), id, target_)) {
+                    // 然后发送实际消息内容
+                    if (send_with_check(sockets[target_], buffer+21, strlen(buffer+21), id, target_)) {
+                        printf("%s[INFO]%s Message successfully delivered from ID %d to ID %d\n", 
+                               GREEN, RESET, id, target_);
+                        // 通知发送方消息发送成功
+                        success_msg = "Message successfully delivered to ID " + to_string(target_);
+                        send_with_check(socket, success_msg.c_str(), success_msg.length());
+                    }
+                }
                 break;
+                
             case 5: // disconnect
-                send(socket, bye, strlen(bye), 0);
+                if (send_with_check(socket, bye, strlen(bye))) {
+                    printf("%s[INFO]%s Goodbye message sent successfully to client ID %d\n", GREEN, RESET, id);
+                }
                 close(socket);
                 sockets[id] = -2;
                 printf("ID %d disconnected\n", id);
                 return;
+                
             default:
                 break;
         }
     }
 
-    // 清理连接
     close(socket);
     sockets[id] = -2;
     return;
