@@ -58,7 +58,7 @@ void signal_handler(int signum) {
     
     for(int i = 0; i < MAX_CLIENT; i++) {
         if(sockets[i] >= 0) {
-            const char* goodbye = "Server shutting down...";
+            const char* goodbye = "[SHUTDOWN]Server shutting down...";
             send_with_check(sockets[i], goodbye, strlen(goodbye));
             close(sockets[i]);
             sockets[i] = -1;
@@ -72,7 +72,7 @@ void signal_handler(int signum) {
 
 void do_server(int socket, int id) {
     char buffer[1024] = {0};
-    const char* n = "Tcat";
+    const char* n = "Tcat & Anya";
     const char* bye = "OK, bye~";
 
     // 发送欢迎消息
@@ -98,7 +98,7 @@ void do_server(int socket, int id) {
         time_t rawtime;
         time(&rawtime);
         const char* t = asctime(localtime(&rawtime));
-        int target_ = -1;
+        unsigned char target_;
         string client_list_ = "Connecting Client List:\n";
 
         // 在switch之前声明所有需要的变量
@@ -130,7 +130,8 @@ void do_server(int socket, int id) {
                 break;
                 
             case 4: // send message
-                target_ = int(*(buffer+1)) - int('0');
+                target_ = *(buffer+1) - int('0');
+                printf("ID %d attempting to send to target ID %u\n", id, target_);
                 if(target_ < 0 || target_ >= MAX_CLIENT || sockets[target_] < 0) {
                     error_msg = "[ERROR]: Target ID does not exist";
                     send_with_check(socket, error_msg, strlen(error_msg));
@@ -138,12 +139,12 @@ void do_server(int socket, int id) {
                 }
                 
                 ring_ = "You have a message from ID: " + to_string(id) + "\n";
-                printf("Attempting to send message from ID %d to target ID %d\n", id, target_);
+                printf("Attempting to send message from ID %d to target ID %u\n", id, target_);
                 
                 // 首先发送通知消息
                 if (send_with_check(sockets[target_], ring_.c_str(), ring_.length(), id, target_)) {
                     // 然后发送实际消息内容
-                    if (send_with_check(sockets[target_], buffer+21, strlen(buffer+21), id, target_)) {
+                    if (send_with_check(sockets[target_], buffer+3, strlen(buffer+3), id, target_)) {
                         printf("%s[INFO]%s Message successfully delivered from ID %d to ID %d\n", 
                                GREEN, RESET, id, target_);
                         // 通知发送方消息发送成功

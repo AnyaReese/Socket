@@ -39,8 +39,9 @@ string menu2 = "+-------------------+\n"
                "+-------------------+\n";
 
 struct packet {
-    char request; //1.get time 2.get name 3.client list 4.send message 5.disconnect
-    char target_addr[20];
+    unsigned char request; //1.get time 2.get name 3.client list 4.send message 5.disconnect
+    unsigned char target_addr;
+    unsigned char size;
     char message[256];
 };
 
@@ -58,6 +59,25 @@ bool threadRunning = false;
 bool clientListReceived = false;
 pthread_t recvThread;
 int global_sock;
+bool server_shutdown = false;
+
+// 发送消息到服务器
+void send_to_server(int &sock, struct packet pack) {
+    send(sock, &pack, sizeof(pack), 0);
+}
+
+// 处理断开连接
+void disconnect(int& sock) {
+    printf("%s[INFO]%s Disconnecting...\n", GREEN, RESET);
+    struct packet pack = {5, 0, 0, ""};
+    send_to_server(sock, pack);
+    threadRunning = false;
+    shutdown(sock, SHUT_RDWR);
+    pthread_join(recvThread, NULL);
+    close(sock);
+    clientListReceived = false;
+    printf("%s[INFO]%s Disconnected successfully!\n", GREEN, RESET);
+}
 
 // 处理消息队列
 void processMessageQueue() {
@@ -69,6 +89,11 @@ void processMessageQueue() {
         if(msg.type == ThreadMessage::RESPONSE) {
             printf("\n%s[Server Response]:%s %s\n", CYAN, RESET, msg.content.c_str());
             printf("%s[User]%s ", YELLOW, RESET);
+            if(msg.sender_id == -1)
+            {
+                server_shutdown = true;
+                disconnect(global_sock);
+            }
         } else {
             printf("\n%s[Message from %s(ID:%d)]:%s %s\n", 
                    CYAN, msg.sender_ip.c_str(), msg.sender_id, RESET, msg.content.c_str());
@@ -99,6 +124,10 @@ void* receiveThread(void* arg) {
                 sscanf(buffer, "[NOTIFICATION]From:%[^(](ID:%d):%s", 
                        msg.sender_ip.c_str(), &msg.sender_id, msg.content.c_str());
             } else {
+                if(strstr(buffer, "[SHUTDOWN]") != NULL)//如果是 server 的断连消息
+                {
+                    msg.sender_id = -1;
+                }
                 msg.type = ThreadMessage::RESPONSE;
                 msg.content = string(buffer);
             }
@@ -112,29 +141,14 @@ void* receiveThread(void* arg) {
     return NULL;
 }
 
-// 发送消息到服务器
-void send_to_server(int &sock, struct packet pack) {
-    send(sock, &pack, 277, 0);
-}
 
-// 处理断开连接
-void disconnect(int& sock) {
-    printf("%s[INFO]%s Disconnecting...\n", GREEN, RESET);
-    struct packet pack = {5, "", ""};
-    send_to_server(sock, pack);
-    threadRunning = false;
-    shutdown(sock, SHUT_RDWR);
-    pthread_join(recvThread, NULL);
-    close(sock);
-    clientListReceived = false;
-    printf("%s[INFO]%s Disconnected successfully!\n", GREEN, RESET);
-}
+
 
 
 
 // 获取客户端列表
 void get_client_list(int& sock) {
-    struct packet pack = {3, "", ""};
+    struct packet pack = {3, 0,0, ""};
     send_to_server(sock, pack);
     clientListReceived = true;
 }
@@ -147,7 +161,7 @@ void send_message(int& sock) {
         sleep(1); // 等待接收客户端列表
     }
     
-    struct packet pack = {4, "", ""};
+    struct packet pack = {4, 0,0,""};
     printf("%s[INFO]%s Please enter target ID\n", GREEN, RESET);
     printf("%s[User]%s ", YELLOW, RESET);
     cin >> pack.target_addr;
@@ -155,7 +169,7 @@ void send_message(int& sock) {
     printf("%s[User]%s ", YELLOW, RESET);
     cin.ignore();
     cin.getline(pack.message, 256);
-    
+    pack.size = strlen(pack.message);
     send_to_server(sock, pack);
 }
 
@@ -166,12 +180,18 @@ int main() {
     
     while (true) {
         int order = 0;
+        if(server_shutdown)
+        {
+            connected = false;
+            server_shutdown = false;
+        }
+
         if(connected) {
             cout << menu2;
             printf("%s[User]%s ", YELLOW, RESET);
             cin >> order;
             
-            struct packet pack = {-1,"",""};
+            struct packet pack = {0,0,0,""};
             pack.request = order;
             bool flag = true;
             
