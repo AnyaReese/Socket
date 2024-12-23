@@ -161,24 +161,209 @@
 ### 实验记录
 以下记录需结合屏幕截图，配以文字标注：
 
-1. **请求数据包**：
-   - 描述格式（绘图说明）。
-   - 定义请求类型。
+#### 1. 请求数据包
 
-2. **响应数据包**：
-   - 描述格式（绘图说明）。
-   - 定义响应类型。
+描述格式：
+请求数据包由客户端发给服务端，用于传递客户端的请求信息，包含以下字段：
+- **`request`** (1字节): 请求类型，例如获取时间、获取名字、客户端列表等。
+- **`target_addr`** (1字节): 目标客户端地址，仅在发送消息功能中使用。
+- **`size`** (1字节): 消息内容的长度。
+- **`message`** (256字节): 可选的消息内容，取决于请求类型。
 
-3. **指示数据包**：
-   - 描述格式（绘图说明）。
-   - 定义指示类型。
+绘图说明
+```
++-----------+--------------+-------+--------------------------------------+
+| Request   | Target Addr  | Size  | Message                              |
++-----------+--------------+-------+--------------------------------------+
+| 1 byte    | 1 byte       | 1 byte| Up to 256 bytes                      |
++-----------+--------------+-------+--------------------------------------+
+```
+
+定义请求类型
+- **1**: 获取时间。
+- **2**: 获取名字。
+- **3**: 获取客户端列表。
+- **4**: 发送消息。
+- **5**: 断开连接。
+
+---
+
+#### 2.响应数据包
+描述格式
+响应数据包由服务端发回客户端，用于返回请求的结果，包含以下字段：
+- **`response_code`** (1字节): 响应类型，例如成功、失败。
+- **`data`**: 返回的数据内容，可变长度。
+
+绘图说明
+```
++-----------------+--------------------------------+
+| Response Code   | Data                           |
++-----------------+--------------------------------+
+| 1 byte          | Variable-length data          |
++-----------------+--------------------------------+
+```
+
+定义响应类型
+- **0**: 成功。
+- **1**: 失败。
+- **其他类型**: 特殊处理，例如服务器断连。
+
+#### 3. 指示数据包
+描述格式
+指示数据包由服务端主动发送给客户端，用于通知客户端事件（例如新消息），包含以下字段：
+- **`instruction_code`** (1字节): 指示类型，例如新消息通知。
+- **`source_id`** (1字节): 消息发送者的ID。
+- **`data`**: 通知的内容，可变长度。
+
+绘图说明
+```
++------------------+------------+-------------------------------+
+| Instruction Code | Source ID  | Data                          |
++------------------+------------+-------------------------------+
+| 1 byte           | 1 byte     | Variable-length data         |
++------------------+------------+-------------------------------+
+```
+
+定义指示类型
+- **1**: 新消息通知。
+- **2**: 服务器状态更新通知。
 
 4. **客户端初始运行后显示的菜单选项**。
 
+![alt text](img/README/image.png)
+
+<!--我图片暂时放在本地还没挂上去-->
+
 5. **客户端的主线程循环关键代码**（描述总体，省略细节部分）。
+
+主循环逻辑
+
+    1. 检查服务器状态：
+       - 如果服务器关闭（`server_shutdown`），重置连接状态为未连接。
+    2. 已连接：
+       - 显示功能菜单，等待用户选择操作。
+       - 根据选择执行对应操作（如获取时间、发送消息、断开连接等）。
+       - 处理接收线程传来的服务器响应和通知。
+    3. 未连接：
+       - 创建套接字并显示初始菜单（仅支持连接或退出）。
+       - 用户选择连接时，输入服务器IP和端口，尝试连接。
+       - 如果连接成功，启动接收线程。
+    4. 循环持续：
+       - 循环运行，直到用户选择退出程序。
+
+```cpp
+while (true) {
+    if (server_shutdown) {
+        connected = false;
+        server_shutdown = false;
+    }
+
+    if (connected) {
+        cout << menu2;
+        cin >> order;
+        struct packet pack = {0, 0, 0, ""};
+        pack.request = order;
+        switch (order) {
+            case 1: // Get time
+                printf("[INFO] Getting time...\n");
+                break;
+            case 4: // Send message
+                send_message(sock);
+                break;
+            case 5: // Disconnect
+                disconnect(sock);
+                connected = false;
+                break;
+            case 6: // Exit
+                if (connected) disconnect(sock);
+                return 0;
+            default:
+                printf("[ERROR] Unknown command!\n");
+                break;
+        }
+        send_to_server(sock, pack);
+        processMessageQueue();
+    } else {
+        sock = socket(AF_INET, SOCK_STREAM, 0);
+        if (sock < 0) {
+            printf("[ERROR] Socket creation failed\n");
+            return -1;
+        }
+        global_sock = sock;
+        cout << menu1;
+        cin >> order;
+        if (order == 1) { // Connect
+            // Connect to server logic
+        } else if (order == 2) { // Exit
+            close(sock);
+            return 0;
+        } else {
+            printf("[ERROR] Unknown command!\n");
+        }
+    }
+}
+```
 
 6. **客户端的接收数据子线程循环关键代码**（描述总体，省略细节部分）。
 
+主要功能
+- 持续监听服务器消息：
+  - 在循环中调用 `recv()` 方法接收服务器发送的数据。
+  - 解析接收到的数据并根据类型（响应或通知）分类处理。
+- 将处理后的消息加入消息队列：
+  - 使用线程安全的队列（`messageQueue`）存储消息，供主线程读取和显示。
+- 检查线程运行状态：
+  - 根据线程控制标志（`threadRunning`）判断是否继续接收数据。
+  - 如果线程结束或服务器关闭，退出循环。
+
+关键代码片段：
+```cpp
+void* receiveThread(void* arg) {
+    int sock = *(int*)arg;
+    char buffer[1024];
+    threadRunning = true;  // 标记线程正在运行
+    
+    while (threadRunning) {
+        memset(buffer, 0, sizeof(buffer));  // 清空接收缓冲区
+        int bytesReceived = recv(sock, buffer, sizeof(buffer) - 1, 0);  // 接收数据
+        
+        if (bytesReceived > 0) {
+            buffer[bytesReceived] = '\0';  // 确保数据以字符串形式结束
+            
+            ThreadMessage msg;
+            if (strstr(buffer, "[NOTIFICATION]") != NULL) {  // 判断是否为通知消息
+                msg.type = ThreadMessage::NOTIFICATION;
+                // 解析发送者信息
+                sscanf(buffer, "[NOTIFICATION]From:%[^(](ID:%d):%s", 
+                       msg.sender_ip.c_str(), &msg.sender_id, msg.content.c_str());
+            } else {
+                if (strstr(buffer, "[SHUTDOWN]") != NULL)  // 如果是服务器关闭通知
+                    msg.sender_id = -1;
+                msg.type = ThreadMessage::RESPONSE;  // 处理为响应消息
+                msg.content = string(buffer);
+            }
+            
+            queueMutex.lock();  // 加锁保证线程安全
+            messageQueue.push(msg);  // 将消息加入队列
+            queueMutex.unlock();
+        }
+        
+        processMessageQueue();  // 调用函数处理队列中的消息
+    }
+    
+    return NULL;
+}
+```
+
+    1. 数据接收：
+       - 使用 `recv()` 循环从服务器接收数据包。
+    2. 数据解析：
+       - 判断是通知消息还是响应消息，并提取相关内容。
+    3. 消息存储：
+       - 加锁后将消息存入线程安全队列，供主线程读取。
+    4. 线程控制：
+       - 根据 `threadRunning` 标志决定是否继续运行，如果线程标志变为 `false`，退出循环。
+   
 7. **服务器初始运行后显示的界面**。
 
 8. **服务器的主线程循环关键代码**（描述总体，省略细节部分）。
