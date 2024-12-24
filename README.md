@@ -2,7 +2,7 @@
 
 > 实验名称： 基于Socket接口实现自定义协议通信</br>
 > 实验类型： 编程实验</br>
-> 同组学生： 林子昕 3220103784，佟昕 322xxx</br>
+> 同组学生： 林子昕 3220103784，佟昕 3220101844</br>
 > 实验平台： Linux，MacOS 操作系统
 
 <!-- 客户端和服务端的代码分别在 client 和 server 目录
@@ -170,205 +170,98 @@
 - **`size`** (1字节): 消息内容的长度。
 - **`message`** (256字节): 可选的消息内容，取决于请求类型。
 
-绘图说明
-```
-+-----------+--------------+-------+--------------------------------------+
-| Request   | Target Addr  | Size  | Message                              |
-+-----------+--------------+-------+--------------------------------------+
-| 1 byte    | 1 byte       | 1 byte| Up to 256 bytes                      |
-+-----------+--------------+-------+--------------------------------------+
-```
+![alt text](img/README/image-2.png)
 
-定义请求类型
-- **1**: 获取时间。
-- **2**: 获取名字。
-- **3**: 获取客户端列表。
-- **4**: 发送消息。
-- **5**: 断开连接。
+#### 2. 响应数据包
 
----
+![alt text](img/README/image-3.png)
 
-#### 2.响应数据包
-描述格式
-响应数据包由服务端发回客户端，用于返回请求的结果，包含以下字段：
-- **`response_code`** (1字节): 响应类型，例如成功、失败。
-- **`data`**: 返回的数据内容，可变长度。
+从服务端发回来的数据包会被解析为一个`ThreadMessage`，包括：
+- `type`：消息的类型，可以是`RESPONSE`或`NOTIFICATION`，同时，对于额外设置了 `[SHUTDOWN]` 字段特殊处理Server端断开连接的处理
+- `content`：消息的具体内容，例如服务器返回的数据或通知的具体信息。
+- `sender_ip`：发送者的IP地址，用于标识消息的来源。
+- `sender_id`：发送者的唯一标识符或ID，用于区分不同的客户端或服务器。
 
-绘图说明
-```
-+-----------------+--------------------------------+
-| Response Code   | Data                           |
-+-----------------+--------------------------------+
-| 1 byte          | Variable-length data          |
-+-----------------+--------------------------------+
-```
-
-定义响应类型
-- **0**: 成功。
-- **1**: 失败。
-- **其他类型**: 特殊处理，例如服务器断连。
+![alt text](img/README/image-4.png)
 
 #### 3. 指示数据包
-描述格式
-指示数据包由服务端主动发送给客户端，用于通知客户端事件（例如新消息），包含以下字段：
-- **`instruction_code`** (1字节): 指示类型，例如新消息通知。
-- **`source_id`** (1字节): 消息发送者的ID。
-- **`data`**: 通知的内容，可变长度。
 
-绘图说明
-```
-+------------------+------------+-------------------------------+
-| Instruction Code | Source ID  | Data                          |
-+------------------+------------+-------------------------------+
-| 1 byte           | 1 byte     | Variable-length data         |
-+------------------+------------+-------------------------------+
-```
+![alt text](img/README/image-5.png)
 
-定义指示类型
-- **1**: 新消息通知。
-- **2**: 服务器状态更新通知。
+从服务端发回来的数据包会被解析为一个`ThreadMessage`，包括：
+- `type`：消息的类型，可以是`RESPONSE`或`NOTIFICATION`，同时，对于额外设置了 `[SHUTDOWN]` 字段特殊处理Server端断开连接的处理
+- `content`：消息的具体内容，例如服务器返回的数据或通知的具体信息。
+- `sender_ip`：发送者的IP地址，用于标识消息的来源。
+- `sender_id`：发送者的唯一标识符或ID，用于区分不同的客户端或服务器。
 
-4. **客户端初始运行后显示的菜单选项**。
+#### 4. 客户端初始运行后显示的菜单选项。
 
-![alt text](img/README/image.png)
+<div class="center">
+<img src="img/README/image-6.png" width="50%">
+</div>
 
-<!--我图片暂时放在本地还没挂上去-->
+#### 5. 客户端的主线程循环关键代码（描述总体，省略细节部分）。
 
-5. **客户端的主线程循环关键代码**（描述总体，省略细节部分）。
+主线程循环的关键代码主要负责显示菜单、接收用户输入、处理用户命令，并根据用户的选择执行相应的操作：
+- 显示菜单：根据客户端是否已连接到服务器，显示不同的菜单选项。
+- 接收用户输入：提示用户输入选择的命令。
+- 命令处理：如果用户未连接到服务器，根据用户选择执行连接操作或退出。
 
-主循环逻辑
+![alt text](img/README/image-7.png)
 
-    1. 检查服务器状态：
-       - 如果服务器关闭（`server_shutdown`），重置连接状态为未连接。
-    2. 已连接：
-       - 显示功能菜单，等待用户选择操作。
-       - 根据选择执行对应操作（如获取时间、发送消息、断开连接等）。
-       - 处理接收线程传来的服务器响应和通知。
-    3. 未连接：
-       - 创建套接字并显示初始菜单（仅支持连接或退出）。
-       - 用户选择连接时，输入服务器IP和端口，尝试连接。
-       - 如果连接成功，启动接收线程。
-    4. 循环持续：
-       - 循环运行，直到用户选择退出程序。
+如果用户已连接，根据用户选择执行一项操作（`get time`等）
 
-```cpp
-while (true) {
-    if (server_shutdown) {
-        connected = false;
-        server_shutdown = false;
-    }
+![alt text](img/README/image-8.png)
 
-    if (connected) {
-        cout << menu2;
-        cin >> order;
-        struct packet pack = {0, 0, 0, ""};
-        pack.request = order;
-        switch (order) {
-            case 1: // Get time
-                printf("[INFO] Getting time...\n");
-                break;
-            case 4: // Send message
-                send_message(sock);
-                break;
-            case 5: // Disconnect
-                disconnect(sock);
-                connected = false;
-                break;
-            case 6: // Exit
-                if (connected) disconnect(sock);
-                return 0;
-            default:
-                printf("[ERROR] Unknown command!\n");
-                break;
-        }
-        send_to_server(sock, pack);
-        processMessageQueue();
-    } else {
-        sock = socket(AF_INET, SOCK_STREAM, 0);
-        if (sock < 0) {
-            printf("[ERROR] Socket creation failed\n");
-            return -1;
-        }
-        global_sock = sock;
-        cout << menu1;
-        cin >> order;
-        if (order == 1) { // Connect
-            // Connect to server logic
-        } else if (order == 2) { // Exit
-            close(sock);
-            return 0;
-        } else {
-            printf("[ERROR] Unknown command!\n");
-        }
-    }
-}
-```
+**发送请求**：对于某些命令，如获取时间或名称，构造请求数据包并发送到服务器。
 
-6. **客户端的接收数据子线程循环关键代码**（描述总体，省略细节部分）。
+![alt text](img/README/image-9.png)
 
-主要功能
-- 持续监听服务器消息：
-  - 在循环中调用 `recv()` 方法接收服务器发送的数据。
-  - 解析接收到的数据并根据类型（响应或通知）分类处理。
-- 将处理后的消息加入消息队列：
-  - 使用线程安全的队列（`messageQueue`）存储消息，供主线程读取和显示。
-- 检查线程运行状态：
-  - 根据线程控制标志（`threadRunning`）判断是否继续接收数据。
-  - 如果线程结束或服务器关闭，退出循环。
+**处理消息队列**：从消息队列中取出消息，并根据消息类型进行处理，如显示服务器响应或客户端消息。
 
-关键代码片段：
-```cpp
-void* receiveThread(void* arg) {
-    int sock = *(int*)arg;
-    char buffer[1024];
-    threadRunning = true;  // 标记线程正在运行
-    
-    while (threadRunning) {
-        memset(buffer, 0, sizeof(buffer));  // 清空接收缓冲区
-        int bytesReceived = recv(sock, buffer, sizeof(buffer) - 1, 0);  // 接收数据
-        
-        if (bytesReceived > 0) {
-            buffer[bytesReceived] = '\0';  // 确保数据以字符串形式结束
-            
-            ThreadMessage msg;
-            if (strstr(buffer, "[NOTIFICATION]") != NULL) {  // 判断是否为通知消息
-                msg.type = ThreadMessage::NOTIFICATION;
-                // 解析发送者信息
-                sscanf(buffer, "[NOTIFICATION]From:%[^(](ID:%d):%s", 
-                       msg.sender_ip.c_str(), &msg.sender_id, msg.content.c_str());
-            } else {
-                if (strstr(buffer, "[SHUTDOWN]") != NULL)  // 如果是服务器关闭通知
-                    msg.sender_id = -1;
-                msg.type = ThreadMessage::RESPONSE;  // 处理为响应消息
-                msg.content = string(buffer);
-            }
-            
-            queueMutex.lock();  // 加锁保证线程安全
-            messageQueue.push(msg);  // 将消息加入队列
-            queueMutex.unlock();
-        }
-        
-        processMessageQueue();  // 调用函数处理队列中的消息
-    }
-    
-    return NULL;
-}
-```
+![alt text](img/README/image-10.png)
 
-    1. 数据接收：
-       - 使用 `recv()` 循环从服务器接收数据包。
-    2. 数据解析：
-       - 判断是通知消息还是响应消息，并提取相关内容。
-    3. 消息存储：
-       - 加锁后将消息存入线程安全队列，供主线程读取。
-    4. 线程控制：
-       - 根据 `threadRunning` 标志决定是否继续运行，如果线程标志变为 `false`，退出循环。
-   
+**循环继续**：循环回到显示菜单步骤，等待下一次用户输入。
+
+#### 6. 客户端的接收数据子线程循环关键代码（描述总体，省略细节部分）。
+
+接收数据子线程的主要任务是持续监听来自服务器的数据，并将其放入消息队列中：
+- 线程运行标志检查：在循环开始时，检查`threadRunning`标志，如果为`false`，则退出循环。
+- 接收数据：使用`recv`函数从套接字中接收数据，存储到缓冲区中。
+- 数据解析：如果接收到的数据包含特定通知（如`[NOTIFICATION]`），则解析出发送者IP、ID和消息内容，创建`ThreadMessage`实例，并设置为`NOTIFICATION`类型。
+- 如果接收到的数据是服务器响应（如`[RESPONSE]`或`[SHUTDOWN]`），则直接将整个响应内容设置为`ThreadMessage`的`content`，并设置为`RESPONSE`类型。
+- 消息入队：将解析后的`ThreadMessage`实例加锁后放入消息队列`messageQueue`中。
+- 处理消息队列：调用`processMessageQueue`函数来处理队列中的消息，显示给用户或执行其他必要的操作。
+- 循环继续：返回循环的开始，继续监听来自服务器的数据。
+
+![alt text](img/README/image-11.png)
+
 7. **服务器初始运行后显示的界面**。
+
+![alt text](img/README/image-12.png)
 
 8. **服务器的主线程循环关键代码**（描述总体，省略细节部分）。
 
+服务器的主线程循环负责接受新的客户端连接和监控服务器的运行状态。以下是主线程循环的关键代码的总体描述：
+- 初始化套接字数组：将用于存储客户端套接字的数组sockets初始化为-1，表示所有客户端套接字初始时都是空闲的。
+- 设置信号处理：通过signal函数设置信号处理程序signal_handler，以便在接收到中断信号（如SIGINT和SIGTERM）时能够优雅地关闭服务器。
+- 创建服务器套接字：创建服务器套接字server_fd，并设置其为非阻塞模式，允许地址重用。
+- 绑定和监听：将服务器套接字绑定到指定端口，并开始监听该端口上的连接请求。
+
+![alt text](img/README/image-13.png)
+
+![alt text](img/README/image-14.png)
+
+- 监控退出条件：在主循环中，监控should_exit原子变量，如果它被设置为true（通常由信号处理函数设置），则跳出循环，开始关闭服务器。
+- 关闭服务器：循环结束后，关闭服务器套接字，并等待所有子线程结束，清理线程资源，然后退出主线程
+
+![alt text](img/README/image-15.png)
+
 9. **服务器的客户端处理子线程循环关键代码**（描述总体，省略细节部分）。
+
+服务器的客户端处理子线程循环负责接收和处理来自特定客户端的请求，包括获取时间、服务器名称、客户端列表、发送消息给其他客户端以及断开连接等操作，同时监控服务器的退出信号以确保在必要时能够优雅地关闭连接并释放资源。
+
+![alt text](img/README/image-16.png)
 
 10. **功能操作与显示内容**：
     - **连接功能**：
