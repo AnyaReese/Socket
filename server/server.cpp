@@ -13,7 +13,7 @@
 
 using namespace std;
 
-#define PORT 8080
+#define PORT 3784
 #define MAX_CLIENT 10
 
 // ANSI color codes

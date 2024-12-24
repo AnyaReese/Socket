@@ -177,7 +177,7 @@
 ![alt text](img/README/image-3.png)
 
 从服务端发回来的数据包会被解析为一个`ThreadMessage`，包括：
-- `type`：消息的类型，可以是`RESPONSE`或`NOTIFICATION`，同时，对于额外设置了 `[SHUTDOWN]` 字段特殊处理Server端断开连接的处理
+- `type`：消息的类型，可以是`RESPONSE`或`INFO`，同时，对于额外设置了 `[SHUTDOWN]` 字段特殊处理Server端断开连接的处理
 - `content`：消息的具体内容，例如服务器返回的数据或通知的具体信息。
 - `sender_ip`：发送者的IP地址，用于标识消息的来源。
 - `sender_id`：发送者的唯一标识符或ID，用于区分不同的客户端或服务器。
@@ -189,7 +189,7 @@
 ![alt text](img/README/image-5.png)
 
 从服务端发回来的数据包会被解析为一个`ThreadMessage`，包括：
-- `type`：消息的类型，可以是`RESPONSE`或`NOTIFICATION`，同时，对于额外设置了 `[SHUTDOWN]` 字段特殊处理Server端断开连接的处理
+- `type`：消息的类型，可以是`RESPONSE`或`INFO`，同时，对于额外设置了 `[SHUTDOWN]` 字段特殊处理Server端断开连接的处理
 - `content`：消息的具体内容，例如服务器返回的数据或通知的具体信息。
 - `sender_ip`：发送者的IP地址，用于标识消息的来源。
 - `sender_id`：发送者的唯一标识符或ID，用于区分不同的客户端或服务器。
@@ -228,7 +228,7 @@
 接收数据子线程的主要任务是持续监听来自服务器的数据，并将其放入消息队列中：
 - 线程运行标志检查：在循环开始时，检查`threadRunning`标志，如果为`false`，则退出循环。
 - 接收数据：使用`recv`函数从套接字中接收数据，存储到缓冲区中。
-- 数据解析：如果接收到的数据包含特定通知（如`[NOTIFICATION]`），则解析出发送者IP、ID和消息内容，创建`ThreadMessage`实例，并设置为`NOTIFICATION`类型。
+- 数据解析：如果接收到的数据包含特定通知（如`[INFO]`），则解析出发送者IP、ID和消息内容，创建`ThreadMessage`实例，并设置为`INFO`类型。
 - 如果接收到的数据是服务器响应（如`[RESPONSE]`或`[SHUTDOWN]`），则直接将整个响应内容设置为`ThreadMessage`的`content`，并设置为`RESPONSE`类型。
 - 消息入队：将解析后的`ThreadMessage`实例加锁后放入消息队列`messageQueue`中。
 - 处理消息队列：调用`processMessageQueue`函数来处理队列中的消息，显示给用户或执行其他必要的操作。
@@ -236,11 +236,11 @@
 
 ![alt text](img/README/image-11.png)
 
-7. **服务器初始运行后显示的界面**。
+#### 7. 服务器初始运行后显示的界面。
 
 ![alt text](img/README/image-12.png)
 
-8. **服务器的主线程循环关键代码**（描述总体，省略细节部分）。
+#### 8. 服务器的主线程循环关键代码（描述总体，省略细节部分）。
 
 服务器的主线程循环负责接受新的客户端连接和监控服务器的运行状态。以下是主线程循环的关键代码的总体描述：
 - 初始化套接字数组：将用于存储客户端套接字的数组sockets初始化为-1，表示所有客户端套接字初始时都是空闲的。
@@ -257,57 +257,160 @@
 
 ![alt text](img/README/image-15.png)
 
-9. **服务器的客户端处理子线程循环关键代码**（描述总体，省略细节部分）。
+#### 9. 服务器的客户端处理子线程循环关键代码（描述总体，省略细节部分）。
 
 服务器的客户端处理子线程循环负责接收和处理来自特定客户端的请求，包括获取时间、服务器名称、客户端列表、发送消息给其他客户端以及断开连接等操作，同时监控服务器的退出信号以确保在必要时能够优雅地关闭连接并释放资源。
 
 ![alt text](img/README/image-16.png)
 
-10. **功能操作与显示内容**：
-    - **连接功能**：
-      - 截图客户端和服务端显示的内容。
-      - 使用 Wireshark 抓取相关数据包。
+#### 10. 功能操作与显示内容：
 
-    - **获取时间功能**：
-      - 客户端和服务端显示内容截图。
-      - Wireshark 抓取数据包截图，展开应用层数据包，标记请求、响应类型及时间数据对应位置。
+ - **连接功能**：
+   - 截图客户端和服务端显示的内容。
+   - 使用 Wireshark 抓取相关数据包。
 
-    - **获取名字功能**：
-      - 客户端和服务端显示内容截图。
-      - Wireshark 抓取数据包截图，展开应用层数据包，标记请求、响应类型及名字数据对应位置。
-      - 相关服务器处理代码片段。
+![alt text](img/README/image-18.png)
+> 客户端连接成功后显示的内容
 
-    - **获取客户端列表功能**：
-      - 客户端和服务端显示内容截图。
-      - Wireshark 抓取数据包截图，展开应用层数据包，标记请求、响应类型及客户端列表数据对应位置。
-      - 相关服务器处理代码片段。
+![alt text](img/README/image-19.png)
+> 服务端显示的内容
 
-    - **发送消息功能**：
-      - **发送消息的客户端显示内容截图**。
-      - **服务器显示内容截图**。
-      - **接收消息的客户端显示内容截图**。
-      - Wireshark 抓取数据包截图，分别标记发送和接收数据包。
-      - 相关服务器和客户端代码片段。
+![alt text](img/README/image-17.png)
 
-11. **异常情况测试**：
-    - **拔掉客户端网线**：
-      - 客户端退出时的TCP连接状态。
-      - 使用 Wireshark 观察是否发送 TCP 连接释放消息。
-      - 服务端的 TCP 连接状态在10分钟内是否变化。
+> 设置 wireshark 抓包过滤 loopback 网卡，查看连接过程中端口为 `3784` 的数据包。
 
-    - **重新连接**：
-      - 连上网线后重新运行客户端，连接并获取客户端列表，查看异常退出的连接状态。
-      - 发送消息给异常退出的客户端时，观察结果。
+下面为客户端和服务端的 tcp 三次握手，客户端端口号为 60031，服务端端口号为 3784:
 
-    - **修改请求频率**：
-      - 将获取时间功能改为自动发送100次请求。
-      - 检查服务器是否正常处理，客户端是否接收到100次响应，使用 Wireshark 抓取数据包。
+![alt text](img/README/image-20.png)
+> 客户端(60031)向服务端(3784)发送SYN 报文，并置发送序列号 seq 为 0
 
-    - **并发测试**：
-      - 多个客户端同时连接服务器，并自动连续发送时间请求100次。
-      - 截图服务器和客户端运行结果。
+![alt text](img/README/image-21.png)
+> 服务端向客户端发送 SYN+ACK 报文，并置发送序列号 Seq 为0，确认序号为ACK=0+1=1
 
----
+![alt text](img/README/image-22.png)
+> 客户端向服务端发送 ACK 报文，置发送序列号 Seq 为 1，确认序列号ACK 为0+1=1
+
+- **获取时间功能**：
+   - 客户端和服务端显示内容截图。
+   - Wireshark 抓取数据包截图，展开应用层数据包，标记请求、响应类型及时间数据对应位置。
+
+![alt text](img/README/image-23.png)
+> 客户端获取时间显示的内容
+
+![alt text](img/README/image-24.png)
+> 服务端显示的内容
+
+![alt text](img/README/image-42.png)
+> Wireshark 抓取的客户端发送时间请求的数据包
+
+![alt text](img/README/image-43.png)
+> Wireshark 抓取的服务端返回时间的数据包
+
+
+- **获取名字功能**：
+   - 客户端和服务端显示内容截图。
+   - Wireshark 抓取数据包截图，展开应用层数据包，标记请求、响应类型及名字数据对应位置。
+   - 相关服务器处理代码片段。
+
+![alt text](img/README/image-28.png)
+> 客户端获取名字显示的内容
+
+![alt text](img/README/image-29.png)
+> 服务端显示的内容
+
+![alt text](img/README/image-44.png)
+> Wireshark 抓取的客户端发送名字请求的数据包
+
+![alt text](img/README/image-45.png)
+> Wireshark 抓取的服务端返回名字的数据包
+
+![alt text](img/README/image-32.png)
+![alt text](img/README/image-33.png)
+> 服务端处理获取名字请求的代码片段
+
+- **获取客户端列表功能**：
+   - 客户端和服务端显示内容截图。
+   - Wireshark 抓取数据包截图，展开应用层数据包。
+   - 相关服务器处理代码片段。
+
+![alt text](img/README/image-35.png)
+> 客户端获取客户端列表显示的内容
+
+![alt text](img/README/image-36.png)
+> 服务端显示的内容
+
+![alt text](img/README/image-46.png)
+> Wireshark 抓取的客户端发送客户端列表请求的数据包
+
+![alt text](img/README/image-47.png)
+> Wireshark 抓取的服务端返回客户端列表的数据包
+
+![alt text](img/README/image-38.png)
+> 服务端处理获取客户端列表请求的代码片段
+
+- **发送消息功能**：
+   - **发送消息的客户端显示内容截图**。
+   - **服务器显示内容截图**。
+   - **接收消息的客户端显示内容截图**。
+   - Wireshark 抓取数据包截图，分别标记发送和接收数据包。
+   - 相关服务器和客户端代码片段。
+
+![alt text](img/README/image-39.png)
+> 客户端发送消息的显示内容
+
+![alt text](img/README/image-40.png)
+> 服务端显示的内容
+
+![alt text](img/README/image-41.png)
+> 客户端接收消息的显示内容
+
+![alt text](img/README/image-48.png)
+> Wireshark 抓取的客户端发送消息的数据包
+
+![alt text](img/README/image-49.png)
+![alt text](img/README/image-50.png)
+> Wireshark 抓取的服务端转发消息的数据包
+
+![alt text](img/README/image-51.png)
+> Wireshark 抓取的客户端接收消息的数据包
+
+#### 11. 异常情况测试：
+
+- 拔掉客户端网线：
+   - 客户端退出时的 TCP 连接状态。
+   - 使用 Wireshark 观察是否发送 TCP 连接释放消息。
+   - 服务端的 TCP 连接状态在10分钟内是否变化。
+
+![alt text](img/README/image-54.png)
+
+> 切断客户端电脑网络，关闭客户端，等待十分钟，发现 TCP 连接状态 ESTABLISHED，且服务端未断开此用户连接。且抓包结果显示该用户端未向服务端发出 TCP 连接释放的消息。
+
+- 重新连接：
+   - 连上网线后重新运行客户端，连接并获取客户端列表，查看异常退出的连接状态。
+   - 发送消息给异常退出的客户端时，观察结果。
+
+![alt text](img/README/image-52.png)
+> 重新连接后，客户端显示的内容，仍然显示异常退出的客户端
+
+![alt text](img/README/image-53.png)
+> 向异常客户端发送消息，显示客户端 id 不存在。
+
+ - 修改请求频率：
+   - 将获取时间功能改为自动发送100次请求。
+   - 检查服务器是否正常处理，客户端是否接收到100次响应，使用 Wireshark 抓取数据包。
+
+![alt text](img/README/image-56.png)
+> 客户端显示的内容，显示发送时间请求100次, 并接收到100次响应
+
+代码片段：
+
+![alt text](img/README/image-58.png)
+![alt text](img/README/image-57.png)
+
+- 并发测试：
+   - 多个客户端同时连接服务器，并自动连续发送时间请求100次。
+   - 截图服务器和客户端运行结果。
+
 
 ## 六、实验结果与分析
 
@@ -332,8 +435,6 @@
 6. **异常断网处理**：
    - 客户端断网后异常退出，服务端的TCP连接状态是否变化？
    - 服务端如何检测连接是否有效？
-
----
 
 ## 七、讨论与心得
 

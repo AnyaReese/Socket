@@ -7,8 +7,10 @@
 #include <pthread.h>
 #include <queue>
 #include <mutex>
+#include <atomic>
+#include <chrono>
 
-#define DEFUALT_PORT 8080
+#define DEFUALT_PORT 3784
 
 // ANSI color codes
 #define RED "\033[1;31m"
@@ -18,6 +20,9 @@
 #define CYAN "\033[36m"
 
 using namespace std;
+
+// 添加响应计数器
+atomic<int> responseCounter(0);
 
 string menu1 = "+--------------------+\n"
                "|    " GREEN "Menu Options" RESET "    |\n"
@@ -36,6 +41,7 @@ string menu2 = "+-------------------+\n"
                "| " YELLOW "5." RESET " disconnect     |\n"
                "| " YELLOW "6." RESET " exit           |\n"
                "| " YELLOW "7." RESET " refresh        |\n"
+               "| " YELLOW "8." RESET " time test      |\n"  // 新增选项
                "+-------------------+\n";
 
 struct packet {
@@ -47,7 +53,7 @@ struct packet {
 
 // 定义消息队列和同步机制
 struct ThreadMessage {
-    enum Type { RESPONSE, NOTIFICATION } type;
+    enum Type { RESPONSE, INFO } type;
     string content;
     string sender_ip;
     int sender_id;
@@ -64,6 +70,45 @@ bool server_shutdown = false;
 // 发送消息到服务器
 void send_to_server(int &sock, struct packet pack) {
     send(sock, &pack, sizeof(pack), 0);
+}
+
+// 新增的时间请求测试函数
+void perform_time_test(int& sock) {
+    printf("%s[INFO]%s 开始自动化时间请求测试 (100次请求)...\n", GREEN, RESET);
+    
+    responseCounter = 0;
+    struct packet pack = {1, 0, 0, ""};  // 请求类型1是获取时间
+    
+    auto start_time = chrono::high_resolution_clock::now();
+    
+    // 发送100次请求
+    for(int i = 0; i < 100; i++) {
+        send(sock, &pack, sizeof(pack), 0);
+        usleep(10000);  // 请求间隔10ms
+    }
+    
+    // 等待响应（带超时）
+    int timeout_seconds = 10;
+    auto start_wait = chrono::high_resolution_clock::now();
+    while(responseCounter < 100) {
+        auto current = chrono::high_resolution_clock::now();
+        auto duration = chrono::duration_cast<chrono::seconds>(current - start_wait).count();
+        if(duration >= timeout_seconds) {
+            printf("%s[ERROR]%s 等待响应超时！只收到 %d/100 个响应\n", 
+                   RED, RESET, responseCounter.load());
+            break;
+        }
+        usleep(100000);  // 等待时休眠100ms
+    }
+    
+    auto end_time = chrono::high_resolution_clock::now();
+    auto duration = chrono::duration_cast<chrono::milliseconds>(end_time - start_time).count();
+    
+    printf("%s[INFO]%s 测试完成:\n", GREEN, RESET);
+    printf("- 发送请求数: 100\n");
+    printf("- 接收响应数: %d\n", responseCounter.load());
+    printf("- 总耗时: %ld ms\n", duration);
+    printf("- 平均响应时间: %.2f ms\n", duration/100.0);
 }
 
 // 处理断开连接
@@ -117,19 +162,30 @@ void* receiveThread(void* arg) {
             buffer[bytesReceived] = '\0';
             
             ThreadMessage msg;
-            // 简单解析消息类型和内容
-            if(strstr(buffer, "[NOTIFICATION]") != NULL) {
-                msg.type = ThreadMessage::NOTIFICATION;
-                // 解析发送者信息
-                sscanf(buffer, "[NOTIFICATION]From:%[^(](ID:%d):%s", 
+            if(strstr(buffer, "[INFO]") != NULL) {
+                msg.type = ThreadMessage::INFO;
+                sscanf(buffer, "[INFO]From:%[^(](ID:%d):%s", 
                        msg.sender_ip.c_str(), &msg.sender_id, msg.content.c_str());
             } else {
-                if(strstr(buffer, "[SHUTDOWN]") != NULL)//如果是 server 的断连消息
-                {
+                if(strstr(buffer, "[SHUTDOWN]") != NULL) {
                     msg.sender_id = -1;
                 }
+                
                 msg.type = ThreadMessage::RESPONSE;
                 msg.content = string(buffer);
+                
+                // 如果是时间响应则增加计数
+                if(msg.type == ThreadMessage::RESPONSE && 
+                    (strstr(buffer, "202") != NULL || // 匹配年份
+                        strstr(buffer, "Mon ") != NULL || // 匹配星期
+                        strstr(buffer, "Tue ") != NULL ||
+                        strstr(buffer, "Wed ") != NULL ||
+                        strstr(buffer, "Thu ") != NULL ||
+                        strstr(buffer, "Fri ") != NULL ||
+                        strstr(buffer, "Sat ") != NULL ||
+                        strstr(buffer, "Sun ") != NULL)) {
+                        responseCounter++;
+}
             }
             
             queueMutex.lock();
@@ -141,14 +197,9 @@ void* receiveThread(void* arg) {
     return NULL;
 }
 
-
-
-
-
-
 // 获取客户端列表
 void get_client_list(int& sock) {
-    struct packet pack = {3, 0,0, ""};
+    struct packet pack = {3, 0, 0, ""};
     send_to_server(sock, pack);
     clientListReceived = true;
 }
@@ -161,7 +212,7 @@ void send_message(int& sock) {
         sleep(1); // 等待接收客户端列表
     }
     
-    struct packet pack = {4, 0,0,""};
+    struct packet pack = {4, 0, 0, ""};
     printf("%s[INFO]%s Please enter target ID\n", GREEN, RESET);
     printf("%s[User]%s ", YELLOW, RESET);
     cin >> pack.target_addr;
@@ -230,6 +281,11 @@ int main() {
                     
                 case 7: // refresh
                     printf("%s[INFO]%s Refreshing...\n", GREEN, RESET);
+                    break;
+                    
+                case 8: // time test
+                    flag = false;
+                    perform_time_test(sock);
                     break;
                     
                 default:
