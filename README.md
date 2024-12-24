@@ -177,10 +177,10 @@
 ![alt text](img/README/image-3.png)
 
 从服务端发回来的数据包会被解析为一个`ThreadMessage`，包括：
-- `type`：消息的类型，可以是`RESPONSE`或`INFO`，同时，对于额外设置了 `[SHUTDOWN]` 字段特殊处理Server端断开连接的处理
+- `type`：消息的类型，额外设置了 `[SHUTDOWN]` 字段特殊处理Server端断开连接的处理
 - `content`：消息的具体内容，例如服务器返回的数据或通知的具体信息。
-- `sender_ip`：发送者的IP地址，用于标识消息的来源。
-- `sender_id`：发送者的唯一标识符或ID，用于区分不同的客户端或服务器。
+<!-- - `sender_ip`：发送者的IP地址，用于标识消息的来源。
+- `sender_id`：发送者的唯一标识符或ID，用于区分不同的客户端或服务器。 -->
 
 ![alt text](img/README/image-4.png)
 
@@ -189,10 +189,10 @@
 ![alt text](img/README/image-5.png)
 
 从服务端发回来的数据包会被解析为一个`ThreadMessage`，包括：
-- `type`：消息的类型，可以是`RESPONSE`或`INFO`，同时，对于额外设置了 `[SHUTDOWN]` 字段特殊处理Server端断开连接的处理
+- `type`：消息的类型，额外设置了 `[SHUTDOWN]` 字段特殊处理Server端断开连接的处理
 - `content`：消息的具体内容，例如服务器返回的数据或通知的具体信息。
-- `sender_ip`：发送者的IP地址，用于标识消息的来源。
-- `sender_id`：发送者的唯一标识符或ID，用于区分不同的客户端或服务器。
+<!-- - `sender_ip`：发送者的IP地址，用于标识消息的来源。
+- `sender_id`：发送者的唯一标识符或ID，用于区分不同的客户端或服务器。 -->
 
 #### 4. 客户端初始运行后显示的菜单选项。
 
@@ -228,7 +228,6 @@
 接收数据子线程的主要任务是持续监听来自服务器的数据，并将其放入消息队列中：
 - 线程运行标志检查：在循环开始时，检查`threadRunning`标志，如果为`false`，则退出循环。
 - 接收数据：使用`recv`函数从套接字中接收数据，存储到缓冲区中。
-- 数据解析：如果接收到的数据包含特定通知（如`[INFO]`），则解析出发送者IP、ID和消息内容，创建`ThreadMessage`实例，并设置为`INFO`类型。
 - 如果接收到的数据是服务器响应（如`[RESPONSE]`或`[SHUTDOWN]`），则直接将整个响应内容设置为`ThreadMessage`的`content`，并设置为`RESPONSE`类型。
 - 消息入队：将解析后的`ThreadMessage`实例加锁后放入消息队列`messageQueue`中。
 - 处理消息队列：调用`processMessageQueue`函数来处理队列中的消息，显示给用户或执行其他必要的操作。
@@ -303,7 +302,7 @@
 ![alt text](img/README/image-42.png)
 > Wireshark 抓取的客户端发送时间请求的数据包
 
-![alt text](img/README/image-43.png)
+![alt text](img/README/image-61.png)
 > Wireshark 抓取的服务端返回时间的数据包
 
 
@@ -321,7 +320,7 @@
 ![alt text](img/README/image-44.png)
 > Wireshark 抓取的客户端发送名字请求的数据包
 
-![alt text](img/README/image-45.png)
+![alt text](img/README/image-62.png)
 > Wireshark 抓取的服务端返回名字的数据包
 
 ![alt text](img/README/image-32.png)
@@ -342,7 +341,7 @@
 ![alt text](img/README/image-46.png)
 > Wireshark 抓取的客户端发送客户端列表请求的数据包
 
-![alt text](img/README/image-47.png)
+![alt text](img/README/image-63.png)
 > Wireshark 抓取的服务端返回客户端列表的数据包
 
 ![alt text](img/README/image-38.png)
@@ -367,11 +366,11 @@
 ![alt text](img/README/image-48.png)
 > Wireshark 抓取的客户端发送消息的数据包
 
-![alt text](img/README/image-49.png)
-![alt text](img/README/image-50.png)
+![alt text](img/README/image-64.png)
+![alt text](img/README/image-65.png)
 > Wireshark 抓取的服务端转发消息的数据包
 
-![alt text](img/README/image-51.png)
+![alt text](img/README/image-66.png)
 > Wireshark 抓取的客户端接收消息的数据包
 
 #### 11. 异常情况测试：
@@ -402,6 +401,9 @@
 ![alt text](img/README/image-56.png)
 > 客户端显示的内容，显示发送时间请求100次, 并接收到100次响应
 
+![alt text](img/README/image-60.png)
+> wireshark 抓取的客户端发送时间请求的数据包
+
 代码片段：
 
 ![alt text](img/README/image-58.png)
@@ -411,6 +413,8 @@
    - 多个客户端同时连接服务器，并自动连续发送时间请求100次。
    - 截图服务器和客户端运行结果。
 
+![alt text](img/README/image-59.png)
+正常运行
 
 ## 六、实验结果与分析
 

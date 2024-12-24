@@ -162,11 +162,11 @@ void* receiveThread(void* arg) {
             buffer[bytesReceived] = '\0';
             
             ThreadMessage msg;
-            if(strstr(buffer, "[INFO]") != NULL) {
-                msg.type = ThreadMessage::INFO;
-                sscanf(buffer, "[INFO]From:%[^(](ID:%d):%s", 
-                       msg.sender_ip.c_str(), &msg.sender_id, msg.content.c_str());
-            } else {
+            // if(strstr(buffer, "[INFO]") != NULL) {
+            //     msg.type = ThreadMessage::INFO;
+            //     sscanf(buffer, "[INFO]From:%[^(](ID:%d):%s", 
+            //            msg.sender_ip.c_str(), &msg.sender_id, msg.content.c_str());
+            // } else {
                 if(strstr(buffer, "[SHUTDOWN]") != NULL) {
                     msg.sender_id = -1;
                 }
@@ -185,8 +185,8 @@ void* receiveThread(void* arg) {
                         strstr(buffer, "Sat ") != NULL ||
                         strstr(buffer, "Sun ") != NULL)) {
                         responseCounter++;
-}
-            }
+                }
+            // }
             
             queueMutex.lock();
             messageQueue.push(msg);
